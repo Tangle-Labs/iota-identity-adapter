@@ -7,14 +7,13 @@
   "author": "Merul <merul@tanglelabs.io>",
   "license": "GPL-2.0",
   "scripts": {
-    "build": "tsc; copyfiles -u 1 \"src/**/*.d.ts\" dist;",
+    "build": "tsc;",
     "test": "jest",
     "coverage": "jest --coverage",
     "lint": "eslint . --cache",
     "format": "prettier -w \"**/*.{ts,js,json,scss,css}\"",
     "format-check": "prettier -c \"src/**{ts,js,json,scss,css}\"",
-    "semantic-release": "semantic-release --branches main",
-    "copy-dts": "copyfiles -u 1 \"src/**/*.d.ts\" dist"
+    "semantic-release": "semantic-release --branches main"
   },
   "devDependencies": {
     "@types/jest": "^28.1.4",

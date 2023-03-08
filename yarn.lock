@@ -1018,6 +1018,13 @@
   dependencies:
     "@sinonjs/commons" "^1.7.0"
 
+"@tanglelabs/identity-manager@^0.4.1":
+  version "0.4.1"
+  resolved "https://registry.yarnpkg.com/@tanglelabs/identity-manager/-/identity-manager-0.4.1.tgz#41a6f1262949e3f829c1fc443681f89072d49599"
+  integrity sha512-sN8j0D0Xlxbu77bWu8E9PAtIsCEPk2qcBZ7kIGq1UPWK5eGCNwCfC02Ob/eMH+mTcNnKHl/7tjCQsioOB8Cqvg==
+  dependencies:
+    crypto-js "^4.1.1"
+
 "@tootallnate/once@2":
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/@tootallnate/once/-/once-2.0.0.tgz#f544a148d3ab35801c1f633a7441fd87c2e484bf"
@@ -1997,6 +2004,11 @@ cross-spawn@^7.0.2, cross-spawn@^7.0.3:
     path-key "^3.1.0"
     shebang-command "^2.0.0"
     which "^2.0.1"
+
+crypto-js@^4.1.1:
+  version "4.1.1"
+  resolved "https://registry.yarnpkg.com/crypto-js/-/crypto-js-4.1.1.tgz#9e485bcf03521041bd85844786b83fb7619736cf"
+  integrity sha512-o2JlM7ydqd3Qk9CA0L4NL6mTzU2sdx96a+oOfPu8Mkl/PK51vSyoi8/rQ8NknZtk44vq15lmhAj9CIAGwgeWKw==
 
 crypto-random-string@^2.0.0:
   version "2.0.0"

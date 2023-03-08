@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "repository": "https://github.com/Tangle-Labs/identity-manager",
+  "repository": "https://github.com/Tangle-Labs/iota-identity-adapter",
   "author": "Merul <merul@tanglelabs.io>",
   "license": "GPL-2.0",
   "scripts": {

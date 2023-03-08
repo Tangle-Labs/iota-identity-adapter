@@ -12,11 +12,7 @@ import {
     CekAlgorithm,
     EncryptedData,
 } from "@iota/identity-wasm/node";
-import {
-    IdentityManager,
-    StorageSpec,
-    IdentityConfig,
-} from "@tanglelabs/identity-manager";
+import { StorageSpec, IdentityConfig } from "@tanglelabs/identity-manager";
 
 export class IotaStorage implements Storage {
     private _chainStates: Map<string, ChainState>;

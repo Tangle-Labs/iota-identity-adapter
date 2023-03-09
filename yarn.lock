@@ -1018,10 +1018,10 @@
   dependencies:
     "@sinonjs/commons" "^1.7.0"
 
-"@tanglelabs/identity-manager@^0.4.1":
-  version "0.4.1"
-  resolved "https://registry.yarnpkg.com/@tanglelabs/identity-manager/-/identity-manager-0.4.1.tgz#41a6f1262949e3f829c1fc443681f89072d49599"
-  integrity sha512-sN8j0D0Xlxbu77bWu8E9PAtIsCEPk2qcBZ7kIGq1UPWK5eGCNwCfC02Ob/eMH+mTcNnKHl/7tjCQsioOB8Cqvg==
+"@tanglelabs/identity-manager@^0.4.3":
+  version "0.4.3"
+  resolved "https://registry.yarnpkg.com/@tanglelabs/identity-manager/-/identity-manager-0.4.3.tgz#e5fc74a61fa64399b027b0b72792aecb52ada432"
+  integrity sha512-LEAK2mjA5c75i6+Q8RfsomslloHfNVLhVUaT7thhjLlaNwbUYvy7xW3eqBqaDHUiyRTGyc64o6a62Y7zP30M+w==
   dependencies:
     crypto-js "^4.1.1"
 

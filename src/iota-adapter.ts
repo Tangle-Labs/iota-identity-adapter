@@ -30,12 +30,15 @@ import {
     FailFast,
 } from "@iota/identity-wasm/node";
 
-import { resolveTxt } from "dns/promises";
+import { resolveTxt } from "dns";
 import { IotaStorage } from "./iota-store";
+import { promisify } from "util";
 
 export const clientConfig = {
     permanodes: [{ url: "https://chrysalis-chronicle.iota.org/api/mainnet/" }],
 };
+
+const dnsResolveTxt = promisify(resolveTxt);
 
 export class IotaAdapter<
     K extends CredentialsStorageDriverSpec<Record<string, any>, any>,
@@ -288,7 +291,7 @@ export async function verifyCredential(
         .toJSON()
         .id.split(/(https|http):\/\//)[2]
         .split("/")[0];
-    const txtRecords = await resolveTxt(domain);
+    const txtRecords = await dnsResolveTxt(domain);
     const didRecord = txtRecords.find((record) =>
         record[0].includes("DVID.did=")
     );

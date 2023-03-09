@@ -8,7 +8,6 @@ import {
     CreateCredentialProps,
     CredentialsManager,
     IVerificationResult,
-    CredentialsStorageDriverSpec,
     StorageSpec,
     IdentityConfig,
     bytesToString,
@@ -41,7 +40,7 @@ export const clientConfig = {
 const dnsResolveTxt = promisify(resolveTxt);
 
 export class IotaAdapter<
-    K extends CredentialsStorageDriverSpec<Record<string, any>, any>,
+    K extends StorageSpec<Record<string, any>, any>,
     T extends IotaAccount<K>
 > implements NetworkAdapter<T>
 {
@@ -55,7 +54,7 @@ export class IotaAdapter<
         return adapter;
     }
 
-    public async createDid<T extends CredentialsStorageDriverSpec<any, any>>(
+    public async createDid<T extends StorageSpec<any, any>>(
         props: CreateDidProps<T>
     ): Promise<DidCreationResult> {
         const { store, seed } = props;
@@ -84,7 +83,7 @@ export class IotaAdapter<
     }
 
     public async deserializeDid<
-        T extends CredentialsStorageDriverSpec<Record<string, any>, any>
+        T extends StorageSpec<Record<string, any>, any>
     >(config: IdentityConfig, store: T): Promise<DidCreationResult> {
         // throw new Error("not implemented uwu");
 
@@ -101,9 +100,8 @@ export class IotaAdapter<
     }
 }
 
-export class IotaAccount<
-    T extends CredentialsStorageDriverSpec<Record<string, any>, any>
-> implements IdentityAccount
+export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
+    implements IdentityAccount
 {
     credentials: IotaCredentialsManager<T>;
     keyPair: KeyPair;
@@ -111,9 +109,9 @@ export class IotaAccount<
     private builder: AccountBuilder;
     private constructor() {}
 
-    public static async build<
-        T extends CredentialsStorageDriverSpec<Record<string, any>, any>
-    >(props: IdentityAccountProps<T>) {
+    public static async build<T extends StorageSpec<Record<string, any>, any>>(
+        props: IdentityAccountProps<T>
+    ) {
         const { seed, isOld, store, extras, alias } = props;
         const { storage } = extras;
         const key = KeyPair.tryFromPrivateKeyBytes(
@@ -179,15 +177,16 @@ export class IotaAccount<
 }
 
 export class IotaCredentialsManager<
-    T extends CredentialsStorageDriverSpec<Record<string, any>, any>
+    T extends StorageSpec<Record<string, any>, any>
 > implements CredentialsManager<T>
 {
     store: T;
     account: IotaAccount<T>;
 
-    public static async build<
-        T extends CredentialsStorageDriverSpec<Record<string, any>, any>
-    >(store: T, account: IotaAccount<T>) {
+    public static async build<T extends StorageSpec<Record<string, any>, any>>(
+        store: T,
+        account: IotaAccount<T>
+    ) {
         const credentialsManager = new IotaCredentialsManager();
         credentialsManager.store = store;
         credentialsManager.account = account;

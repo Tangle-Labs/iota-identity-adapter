@@ -11,7 +11,7 @@ import {
     EncryptionAlgorithm,
     CekAlgorithm,
     EncryptedData,
-} from "@iota/identity-wasm/node";
+} from "@iota/identity-node";
 import { StorageSpec, IdentityConfig } from "@tanglelabs/identity-manager";
 
 export class IotaStorage implements Storage {
@@ -43,14 +43,12 @@ export class IotaStorage implements Storage {
                 config.did as string,
                 Document.fromJSON(config.document)
             );
-            console.log(JSON.parse(vault));
             const keyMap: Map<string, KeyPair> = new Map(
                 JSON.parse(vault).map((k: any) => [
                     k[0],
                     KeyPair.fromJSON(k[1]),
                 ])
             );
-            console.log(keyMap);
             this._vaults.set(config.did as string, keyMap);
         }
     }
@@ -267,7 +265,6 @@ export class IotaStorage implements Storage {
                     keyPair.private()
                 );
                 // Construct a new `Signature` wrapper with the returned signature bytes.
-                console.log(this._vaults);
                 return new Signature(signature);
             } else {
                 throw new Error("Key location not found");

@@ -27,14 +27,24 @@ import {
     DID,
     CredentialValidationOptions,
     FailFast,
-} from "@iota/identity-wasm/node";
+    MethodScope,
+} from "@iota/identity-node";
 
+import * as didJWT from "did-jwt";
 import { resolveTxt } from "dns";
 import { IotaStorage } from "./iota-store";
 import { promisify } from "util";
 
 export const clientConfig = {
     permanodes: [{ url: "https://chrysalis-chronicle.iota.org/api/mainnet/" }],
+};
+
+export const parseBytesToString = (bytes: Uint8Array) => {
+    return Buffer.from(bytes).toString("hex");
+};
+
+export const parseStringToBytes = (str: string) => {
+    return Uint8Array.from(Buffer.from(str, "hex"));
 };
 
 const dnsResolveTxt = promisify(resolveTxt);
@@ -64,6 +74,8 @@ export class IotaAdapter<
                   stringToBytes(seed)
               )
             : new KeyPair(KeyType.Ed25519);
+
+        console.log(Buffer.from(key.private()).toString("hex"));
 
         const generatedSeed = bytesToString(key.private());
 
@@ -136,8 +148,6 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
             storage: new IotaStorage(storage),
         });
 
-        console.log("here?");
-
         const did = await account.builder.createIdentity({
             privateKey: key.private(),
         });
@@ -149,7 +159,8 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
                 { did: did.did().toString() }
             );
             await did.createMethod({
-                content: MethodContent.GenerateEd25519(),
+                scope: MethodScope.VerificationMethod(),
+                content: MethodContent.PrivateEd25519(key.private()),
                 fragment: "#vc-signature",
             });
             const revocationBitmap = new RevocationBitmap();
@@ -202,7 +213,7 @@ export class IotaCredentialsManager<
     public async create(
         props: CreateCredentialProps
     ): Promise<Record<string, any>> {
-        const { id, recipientDid, body, type, keyIndex } = props;
+        const { id, recipientDid, body, type } = props;
 
         const credentialSubject = {
             id: recipientDid,
@@ -214,19 +225,30 @@ export class IotaCredentialsManager<
             type,
             issuer,
             credentialSubject,
-            credentialStatus: {
-                id: this.account.account.did() + "#vc-bitmap",
-                type: RevocationBitmap.type(),
-                revocationBitmapIndex: keyIndex.toString(),
-            },
         });
-        const signedVc = await this.account.account.createSignedCredential(
-            "vc-signature",
-            unsignedCredential,
-            ProofOptions.default()
+
+        const key =
+            parseBytesToString(this.account.keyPair.private()) +
+            parseBytesToString(this.account.keyPair.public());
+        const keyUint8Array = parseStringToBytes(key);
+
+        const signer = didJWT.EdDSASigner(keyUint8Array);
+
+        console.log(unsignedCredential);
+
+        const jwt = await didJWT.createJWT(
+            {
+                aud: recipientDid,
+                nbf: Math.floor(Date.now() / 1000),
+                jti: id,
+                sub: recipientDid,
+                vc: unsignedCredential,
+            },
+            { issuer: unsignedCredential.issuer().toString(), signer },
+            { alg: "EdDSA" }
         );
 
-        return signedVc;
+        return { cred: jwt };
     }
     public async revoke(keyIndex: number): Promise<void> {
         await this.account.account.revokeCredentials("#vc-bitmap", keyIndex);

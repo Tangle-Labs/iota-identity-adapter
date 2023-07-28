@@ -11,7 +11,7 @@ import {
     EncryptionAlgorithm,
     CekAlgorithm,
     EncryptedData,
-} from "@iota/identity-node";
+} from "@iota/identity-wasm/node";
 import { StorageSpec, IdentityConfig } from "@tanglelabs/identity-manager";
 
 export class IotaStorage implements Storage {

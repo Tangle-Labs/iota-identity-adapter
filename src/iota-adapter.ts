@@ -28,7 +28,7 @@ import {
     CredentialValidationOptions,
     FailFast,
     MethodScope,
-} from "@iota/identity-node";
+} from "@iota/identity-wasm/node";
 
 import * as didJWT from "did-jwt";
 import { resolveTxt } from "dns";
@@ -74,8 +74,6 @@ export class IotaAdapter<
                   stringToBytes(seed)
               )
             : new KeyPair(KeyType.Ed25519);
-
-        console.log(Buffer.from(key.private()).toString("hex"));
 
         const generatedSeed = bytesToString(key.private());
 
@@ -233,8 +231,6 @@ export class IotaCredentialsManager<
         const keyUint8Array = parseStringToBytes(key);
 
         const signer = didJWT.EdDSASigner(keyUint8Array);
-
-        console.log(unsignedCredential);
 
         const jwt = await didJWT.createJWT(
             {

@@ -10,7 +10,9 @@ import {
     IVerificationResult,
     StorageSpec,
     IdentityConfig,
-} from "@tanglelabs/identity-manager";
+    bytesToString,
+    stringToBytes,
+} from "@tanglelabs/ssimon";
 import {
     KeyPair,
     KeyType,
@@ -27,12 +29,16 @@ import {
     FailFast,
     MethodScope,
 } from "@iota/identity-wasm/node";
-
+import {
+    JwtCredentialPayload,
+    createVerifiableCredentialJwt,
+    Issuer,
+} from "did-jwt-vc";
 import * as didJWT from "did-jwt";
+
 import { resolveTxt } from "dns";
 import { IotaStorage } from "./iota-store";
 import { promisify } from "util";
-import { bytesToString, stringToBytes } from "@tanglelabs/ssimon";
 
 export const clientConfig = {
     permanodes: [{ url: "https://chrysalis-chronicle.iota.org/api/mainnet/" }],
@@ -51,7 +57,7 @@ const dnsResolveTxt = promisify(resolveTxt);
 export class IotaAdapter<
     K extends StorageSpec<Record<string, any>, any>,
     T extends IotaAccount<K>
-> implements NetworkAdapter<T>
+> implements NetworkAdapter
 {
     store: StorageSpec<any, any>;
 
@@ -75,7 +81,6 @@ export class IotaAdapter<
             : new KeyPair(KeyType.Ed25519);
 
         const generatedSeed = bytesToString(key.private());
-        console.log(generatedSeed);
 
         const identity = await IotaAccount.build({
             seed: seed ?? generatedSeed,
@@ -116,6 +121,10 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
     account: Account;
     private builder: AccountBuilder;
     private constructor() {}
+
+    createPresentation(): Promise<Record<string, any>> {
+        throw new Error("Method not implemented.");
+    }
 
     public static async build<T extends StorageSpec<Record<string, any>, any>>(
         props: IdentityAccountProps<T>
@@ -211,17 +220,16 @@ export class IotaCredentialsManager<
     ): Promise<Record<string, any>> {
         const { id, recipientDid, body, type } = props;
 
-        const credentialSubject = {
-            id: recipientDid,
-            ...body,
-        };
-        const issuer = this.account.account.document().id().toString();
-        const unsignedCredential = new Credential({
-            id,
-            type,
-            issuer,
-            credentialSubject,
-        });
+        // const credentialSubject = {
+        //     id: recipientDid,
+        //     ...body,
+        // };
+        // const unsignedCredential = new Credential({
+        //     id,
+        //     type,
+        //     issuer,
+        //     credentialSubject,
+        // });
 
         const key =
             parseBytesToString(this.account.keyPair.private()) +
@@ -229,18 +237,39 @@ export class IotaCredentialsManager<
         const keyUint8Array = parseStringToBytes(key);
 
         const signer = didJWT.EdDSASigner(keyUint8Array);
+        const vcIssuer: Issuer = {
+            did: this.account.getDid(),
+            signer,
+            alg: "EdDSA",
+        };
+        const types = Array.isArray(type) ? [...type] : [type];
 
-        const jwt = await didJWT.createJWT(
-            {
-                aud: recipientDid,
-                nbf: Math.floor(Date.now() / 1000),
-                jti: id,
-                sub: recipientDid,
-                vc: unsignedCredential,
+        const credential: JwtCredentialPayload = {
+            sub: recipientDid,
+            nbf: Math.floor(Date.now() / 1000),
+            id,
+            vc: {
+                "@context": ["https://www.w3.org/2018/credentials/v1"],
+                type: ["VerifiableCredential", ...types],
+
+                credentialSubject: {
+                    ...body,
+                },
             },
-            { issuer: unsignedCredential.issuer().toString(), signer },
-            { alg: "EdDSA" }
-        );
+        };
+        const jwt = await createVerifiableCredentialJwt(credential, vcIssuer);
+
+        // const jwt = await didJWT.createJWT(
+        //     {
+        //         aud: recipientDid,
+        //         nbf: Math.floor(Date.now() / 1000),
+        //         jti: id,
+        //         sub: recipientDid,
+        //         vc: unsignedCredential,
+        //     },
+        //     { issuer: unsignedCredential.issuer().toString(), signer },
+        //     { alg: "EdDSA" }
+        // );
 
         return { cred: jwt };
     }

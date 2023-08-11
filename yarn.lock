@@ -1144,13 +1144,6 @@
     "@stablelib/wipe" "^1.0.1"
     "@stablelib/xchacha20" "^1.0.1"
 
-"@tanglelabs/identity-manager@^0.4.3":
-  version "0.4.3"
-  resolved "https://registry.yarnpkg.com/@tanglelabs/identity-manager/-/identity-manager-0.4.3.tgz#e5fc74a61fa64399b027b0b72792aecb52ada432"
-  integrity sha512-LEAK2mjA5c75i6+Q8RfsomslloHfNVLhVUaT7thhjLlaNwbUYvy7xW3eqBqaDHUiyRTGyc64o6a62Y7zP30M+w==
-  dependencies:
-    crypto-js "^4.1.1"
-
 "@tanglelabs/ssimon@^0.5.0":
   version "0.5.0"
   resolved "https://registry.yarnpkg.com/@tanglelabs/ssimon/-/ssimon-0.5.0.tgz#d9f926c33ff1cc96b1ce06d18a3ed3abc3684c8d"
@@ -2333,6 +2326,28 @@ dezalgo@^1.0.0:
   dependencies:
     asap "^2.0.0"
     wrappy "1"
+
+did-jwt-vc@^3.2.5:
+  version "3.2.5"
+  resolved "https://registry.yarnpkg.com/did-jwt-vc/-/did-jwt-vc-3.2.5.tgz#526753e640382fd2582f1962f359745c1c5e2607"
+  integrity sha512-FPVW9fRMqQZmDCgoJkj1ZN4v0esLg1BlZRHHqKwTKW8Dg3n1eWvTOxrQlGys8BDlWGDALBw+N2SCM6LYyj7qZg==
+  dependencies:
+    did-jwt "^7.2.0"
+    did-resolver "^4.1.0"
+
+did-jwt@^7.2.0:
+  version "7.2.5"
+  resolved "https://registry.yarnpkg.com/did-jwt/-/did-jwt-7.2.5.tgz#82d589fde5c80f399353829c2319177391018b25"
+  integrity sha512-bbkRurNmIOvr9F8cmgOg1oaXEoGUCmi4UttADCFG//JRdN4EhPnvGVfpp3HGnvhw1vIAvhm0rCLPG9HBgQIM4Q==
+  dependencies:
+    "@noble/curves" "^1.0.0"
+    "@noble/hashes" "^1.3.0"
+    "@stablelib/xchacha20poly1305" "^1.0.1"
+    bech32 "^2.0.0"
+    canonicalize "^2.0.0"
+    did-resolver "^4.1.0"
+    multiformats "^12.0.0"
+    uint8arrays "^4.0.3"
 
 did-jwt@^7.2.4:
   version "7.2.4"

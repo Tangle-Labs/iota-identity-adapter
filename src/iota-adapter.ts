@@ -10,8 +10,6 @@ import {
     IVerificationResult,
     StorageSpec,
     IdentityConfig,
-    bytesToString,
-    stringToBytes,
 } from "@tanglelabs/identity-manager";
 import {
     KeyPair,
@@ -34,6 +32,7 @@ import * as didJWT from "did-jwt";
 import { resolveTxt } from "dns";
 import { IotaStorage } from "./iota-store";
 import { promisify } from "util";
+import { bytesToString, stringToBytes } from "@tanglelabs/ssimon";
 
 export const clientConfig = {
     permanodes: [{ url: "https://chrysalis-chronicle.iota.org/api/mainnet/" }],
@@ -76,6 +75,7 @@ export class IotaAdapter<
             : new KeyPair(KeyType.Ed25519);
 
         const generatedSeed = bytesToString(key.private());
+        console.log(generatedSeed);
 
         const identity = await IotaAccount.build({
             seed: seed ?? generatedSeed,
@@ -95,8 +95,6 @@ export class IotaAdapter<
     public async deserializeDid<
         T extends StorageSpec<Record<string, any>, any>
     >(config: IdentityConfig, store: T): Promise<DidCreationResult> {
-        // throw new Error("not implemented uwu");
-
         const identity = await IotaAccount.build({
             seed: config.seed as string,
             isOld: true,

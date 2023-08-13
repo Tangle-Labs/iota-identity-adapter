@@ -251,25 +251,13 @@ export class IotaCredentialsManager<
             vc: {
                 "@context": ["https://www.w3.org/2018/credentials/v1"],
                 type: ["VerifiableCredential", ...types],
-
+                id,
                 credentialSubject: {
                     ...body,
                 },
             },
         };
         const jwt = await createVerifiableCredentialJwt(credential, vcIssuer);
-
-        // const jwt = await didJWT.createJWT(
-        //     {
-        //         aud: recipientDid,
-        //         nbf: Math.floor(Date.now() / 1000),
-        //         jti: id,
-        //         sub: recipientDid,
-        //         vc: unsignedCredential,
-        //     },
-        //     { issuer: unsignedCredential.issuer().toString(), signer },
-        //     { alg: "EdDSA" }
-        // );
 
         return { cred: jwt };
     }

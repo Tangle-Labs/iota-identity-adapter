@@ -33,6 +33,8 @@ import {
     JwtCredentialPayload,
     createVerifiableCredentialJwt,
     Issuer,
+    JwtPresentationPayload,
+    createVerifiablePresentationJwt,
 } from "did-jwt-vc";
 import * as didJWT from "did-jwt";
 
@@ -122,8 +124,35 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
     private builder: AccountBuilder;
     private constructor() {}
 
-    createPresentation(): Promise<Record<string, any>> {
-        throw new Error("Method not implemented.");
+    async createPresentation(
+        credentials: string[]
+    ): Promise<Record<string, any>> {
+        const key =
+            parseBytesToString(this.keyPair.private()) +
+            parseBytesToString(this.keyPair.public());
+        const keyUint8Array = parseStringToBytes(key);
+
+        const signer = didJWT.EdDSASigner(keyUint8Array);
+        const vpIssuer: Issuer = {
+            did: this.getDid(),
+            signer,
+            alg: "EdDSA",
+        };
+
+        const vpPayload: JwtPresentationPayload = {
+            vp: {
+                "@context": ["https://www.w3.org/2018/credentials/v1"],
+                type: ["VerifiablePresentation"],
+                verifiableCredential: credentials,
+            },
+        };
+
+        const presentationJwt = await createVerifiablePresentationJwt(
+            vpPayload,
+            vpIssuer
+        );
+
+        return { vpPayload, presentationJwt };
     }
 
     public static async build<T extends StorageSpec<Record<string, any>, any>>(
@@ -219,17 +248,6 @@ export class IotaCredentialsManager<
         props: CreateCredentialProps
     ): Promise<Record<string, any>> {
         const { id, recipientDid, body, type } = props;
-
-        // const credentialSubject = {
-        //     id: recipientDid,
-        //     ...body,
-        // };
-        // const unsignedCredential = new Credential({
-        //     id,
-        //     type,
-        //     issuer,
-        //     credentialSubject,
-        // });
 
         const key =
             parseBytesToString(this.account.keyPair.private()) +

@@ -1144,10 +1144,10 @@
     "@stablelib/wipe" "^1.0.1"
     "@stablelib/xchacha20" "^1.0.1"
 
-"@tanglelabs/ssimon@^0.5.0":
-  version "0.5.0"
-  resolved "https://registry.yarnpkg.com/@tanglelabs/ssimon/-/ssimon-0.5.0.tgz#d9f926c33ff1cc96b1ce06d18a3ed3abc3684c8d"
-  integrity sha512-vEd3e9GpOoQ4xDQr1598zxYjMc4jVzFFY8Z6PrRmCzgjdG1yE0ZaLiDWEGQvv2Xl3OLan2IY1ZlOJ7NkcKoA5Q==
+"@tanglelabs/ssimon@^0.5.1":
+  version "0.5.1"
+  resolved "https://registry.yarnpkg.com/@tanglelabs/ssimon/-/ssimon-0.5.1.tgz#79c7c2b2250d7c07627466f60947fb60549e6995"
+  integrity sha512-oge9UVdY3iV41c5fdGVdeoIlz1whDDZCf1ymbKrLL031zbo00dc8bC/8zVH7LZWsWmHhx8CSfKmuZ6pTjcE6yQ==
   dependencies:
     crypto-js "^4.1.1"
 

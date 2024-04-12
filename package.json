@@ -1,6 +1,6 @@
 {
   "name": "@tanglelabs/iota-identity-adapter",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -38,7 +38,7 @@
     "@iota/identity-wasm": "^1.2.0",
     "@iota/sdk-wasm": "1.1.3",
     "@noble/ed25519": "^2.1.0",
-    "@tanglelabs/ssimon": "^0.7.0",
+    "@tanglelabs/ssimon": "^0.7.1",
     "did-jwt": "^7.2.4",
     "did-jwt-vc": "^3.2.5",
     "nanoid": "^5.0.7",

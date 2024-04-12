@@ -15,8 +15,6 @@ import {
     CreateBadgeProps,
 } from "@tanglelabs/ssimon";
 import { getPublicKeyAsync } from "@noble/ed25519";
-import { nanoid } from "nanoid";
-
 import { IotaJwkStore, IotaKidStore } from "./iota-store";
 import {
     AliasOutput,
@@ -31,18 +29,17 @@ import {
     IotaIdentityClient,
     Credential,
     JwsAlgorithm,
-    KeyIdMemStore,
     MethodScope,
     Storage,
     JwsSignatureOptions,
     Timestamp,
     JwtCredentialValidator,
     EdDSAJwsVerifier,
-    DecodedJwtCredential,
     Jwt,
-    Resolver,
+    JwtPresentationOptions,
     JwtCredentialValidationOptions,
     FailFast,
+    Presentation,
 } from "@iota/identity-wasm/node";
 import { ensureAddressHasFunds } from "./utils";
 
@@ -129,33 +126,23 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
     async createPresentation(
         credentials: string[]
     ): Promise<Record<string, any>> {
-        throw new Error("asdf");
-        //     const key =
-        //         parseBytesToString(this.keyPair.private()) +
-        //         parseBytesToString(this.keyPair.public());
-        //     const keyUint8Array = parseStringToBytes(key);
+        const unsigned = new Presentation({
+            holder: this.document.id(),
+            verifiableCredential: credentials,
+        });
 
-        //     const signer = didJWT.EdDSASigner(keyUint8Array);
-        //     const vpIssuer: Issuer = {
-        //         did: this.getDid(),
-        //         signer,
-        //         alg: "EdDSA",
-        //     };
+        const presentationJwt = await this.document.createPresentationJwt(
+            this.storage,
+            "#key-1",
+            unsigned,
+            new JwsSignatureOptions({}),
+            new JwtPresentationOptions({})
+        );
 
-        //     const vpPayload: JwtPresentationPayload = {
-        //         vp: {
-        //             "@context": ["https://www.w3.org/2018/credentials/v1"],
-        //             type: ["VerifiablePresentation"],
-        //             verifiableCredential: credentials,
-        //         },
-        //     };
-
-        //     const presentationJwt = await createVerifiablePresentationJwt(
-        //         vpPayload,
-        //         vpIssuer
-        //     );
-
-        //     return { vpPayload, presentationJwt };
+        return {
+            presentationJwt: presentationJwt.toString(),
+            vpPayload: presentationJwt.toJSON(),
+        };
     }
 
     public getStorage() {

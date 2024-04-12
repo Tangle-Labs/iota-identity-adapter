@@ -12,49 +12,35 @@ import {
     IdentityConfig,
     bytesToString,
     stringToBytes,
+    CreateBadgeProps,
 } from "@tanglelabs/ssimon";
-import {
-    KeyPair,
-    KeyType,
-    AccountBuilder,
-    Account,
-    MethodContent,
-    RevocationBitmap,
-    Credential,
-    ProofOptions,
-    Resolver,
-    CredentialValidator,
-    DID,
-    CredentialValidationOptions,
-    FailFast,
-    MethodScope,
-} from "@iota/identity-wasm/node";
-import {
-    JwtCredentialPayload,
-    createVerifiableCredentialJwt,
-    Issuer,
-    JwtPresentationPayload,
-    createVerifiablePresentationJwt,
-} from "did-jwt-vc";
-import * as didJWT from "did-jwt";
+import { getPublicKeyAsync } from "@noble/ed25519";
+import { nanoid } from "nanoid";
 
-import { resolveTxt } from "dns";
-import { IotaStorage } from "./iota-store";
-import { promisify } from "util";
+import { IotaJwkStore } from "./iota-store";
+import {
+    AliasOutput,
+    Client,
+    SecretManager,
+    SeedSecretManager,
+    Utils,
+    Wallet,
+} from "@iota/sdk-wasm/node";
+import {
+    IotaDID,
+    IotaDocument,
+    IotaIdentityClient,
+    JwkMemStore,
+    JwsAlgorithm,
+    KeyIdMemStore,
+    MethodScope,
+    Storage,
+} from "@iota/identity-wasm/node";
+import { ensureAddressHasFunds } from "./utils";
 
 export const clientConfig = {
     permanodes: [{ url: "https://chrysalis-chronicle.iota.org/api/mainnet/" }],
 };
-
-export const parseBytesToString = (bytes: Uint8Array) => {
-    return Buffer.from(bytes).toString("hex");
-};
-
-export const parseStringToBytes = (str: string) => {
-    return Uint8Array.from(Buffer.from(str, "hex"));
-};
-
-const dnsResolveTxt = promisify(resolveTxt);
 
 export class IotaAdapter<
     K extends StorageSpec<Record<string, any>, any>,
@@ -65,6 +51,10 @@ export class IotaAdapter<
 
     private constructor() {}
 
+    getMethodIdentifier(): string {
+        return "iota";
+    }
+
     public static async build(options: NetworkAdapterOptions) {
         const adapter = new IotaAdapter();
         adapter.store = options.driver;
@@ -74,18 +64,15 @@ export class IotaAdapter<
     public async createDid<T extends StorageSpec<any, any>>(
         props: CreateDidProps<T>
     ): Promise<DidCreationResult> {
-        const { store, seed } = props;
-        const key = seed
-            ? KeyPair.tryFromPrivateKeyBytes(
-                  KeyType.Ed25519,
-                  stringToBytes(seed)
-              )
-            : new KeyPair(KeyType.Ed25519);
-
-        const generatedSeed = bytesToString(key.private());
-
+        const { store, seed, alias } = props;
+        const generatedSeed = seed
+            ? seed
+            : Utils.mnemonicToHexSeed(Utils.generateMnemonic())
+                  .split("0x")[1]
+                  .substring(0, 64);
+        const config = await this.store.findOne({ alias });
         const identity = await IotaAccount.build({
-            seed: seed ?? generatedSeed,
+            seed: config.seed ?? seed ?? generatedSeed,
             isOld: !!seed,
             alias: props.alias,
             store: store,
@@ -102,16 +89,20 @@ export class IotaAdapter<
     public async deserializeDid<
         T extends StorageSpec<Record<string, any>, any>
     >(config: IdentityConfig, store: T): Promise<DidCreationResult> {
-        const identity = await IotaAccount.build({
-            seed: config.seed as string,
-            isOld: true,
-            alias: config.alias,
-            store: store,
-            extras: {
-                storage: this.store,
-            },
-        });
-        return { identity, seed: config.seed as string };
+        // const identity = await IotaAccount.build({
+        //     seed: config.seed as string,
+        //     isOld: true,
+        //     alias: config.alias,
+        //     store: store,
+        //     extras: {
+        //         storage: this.store,
+        //     },
+        // });
+        //
+        // return { identity, seed: config.seed as string };
+        //
+
+        throw new Error();
     }
 }
 
@@ -119,105 +110,185 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
     implements IdentityAccount
 {
     credentials: IotaCredentialsManager<T>;
-    keyPair: KeyPair;
-    account: Account;
-    private builder: AccountBuilder;
+    private secretManager: SecretManager;
+    private walletAddr: string;
+    private did: string;
+    private document: IotaDocument;
+    private tempDid: string;
+
     private constructor() {}
 
     async createPresentation(
         credentials: string[]
     ): Promise<Record<string, any>> {
-        const key =
-            parseBytesToString(this.keyPair.private()) +
-            parseBytesToString(this.keyPair.public());
-        const keyUint8Array = parseStringToBytes(key);
+        throw new Error("asdf");
+        //     const key =
+        //         parseBytesToString(this.keyPair.private()) +
+        //         parseBytesToString(this.keyPair.public());
+        //     const keyUint8Array = parseStringToBytes(key);
 
-        const signer = didJWT.EdDSASigner(keyUint8Array);
-        const vpIssuer: Issuer = {
-            did: this.getDid(),
-            signer,
-            alg: "EdDSA",
-        };
+        //     const signer = didJWT.EdDSASigner(keyUint8Array);
+        //     const vpIssuer: Issuer = {
+        //         did: this.getDid(),
+        //         signer,
+        //         alg: "EdDSA",
+        //     };
 
-        const vpPayload: JwtPresentationPayload = {
-            vp: {
-                "@context": ["https://www.w3.org/2018/credentials/v1"],
-                type: ["VerifiablePresentation"],
-                verifiableCredential: credentials,
-            },
-        };
+        //     const vpPayload: JwtPresentationPayload = {
+        //         vp: {
+        //             "@context": ["https://www.w3.org/2018/credentials/v1"],
+        //             type: ["VerifiablePresentation"],
+        //             verifiableCredential: credentials,
+        //         },
+        //     };
 
-        const presentationJwt = await createVerifiablePresentationJwt(
-            vpPayload,
-            vpIssuer
-        );
+        //     const presentationJwt = await createVerifiablePresentationJwt(
+        //         vpPayload,
+        //         vpIssuer
+        //     );
 
-        return { vpPayload, presentationJwt };
+        //     return { vpPayload, presentationJwt };
     }
 
     public static async build<T extends StorageSpec<Record<string, any>, any>>(
-        props: IdentityAccountProps<T>
+        props: IdentityAccountProps<T> & { did?: string }
     ) {
-        const { seed, isOld, store, extras, alias } = props;
+        const { seed, isOld, store, extras, alias, did } = props;
         const { storage } = extras;
-        const key = KeyPair.tryFromPrivateKeyBytes(
-            KeyType.Ed25519,
-            stringToBytes(seed)
+
+        const publicKey = bytesToString(
+            await getPublicKeyAsync(stringToBytes(seed))
         );
-        const account = new IotaAccount();
-        account.keyPair = key;
-        const clientConfig = {
-            permanodes: [
-                { url: "https://chrysalis-chronicle.iota.org/api/mainnet/" },
-            ],
+        const hexSeed = "0x" + seed + publicKey;
+
+        const API_ENDPOINT = "https://api.testnet.shimmer.network";
+        const client = new Client({
+            primaryNode: API_ENDPOINT,
+            localPow: true,
+        });
+        const didClient = new IotaIdentityClient(client);
+
+        // Get the Bech32 human-readable part (HRP) of the network.
+        const networkHrp: string = await didClient.getNetworkHrp();
+
+        const mnemonic = Utils.generateMnemonic();
+        const seedSecretManager: SeedSecretManager = {
+            hexSeed,
         };
 
-        const credentials = await IotaCredentialsManager.build(store, account);
+        // Generate a random mnemonic for our wallet.
+        const secretManager: SecretManager = new SecretManager(
+            seedSecretManager
+        );
 
-        account.credentials = credentials;
+        const walletAddressBech32 = (
+            await secretManager.generateEd25519Addresses({
+                accountIndex: 0,
+                range: {
+                    start: 0,
+                    end: 1,
+                },
+                bech32Hrp: networkHrp,
+            })
+        )[0];
 
-        account.builder = new AccountBuilder({
-            autopublish: false,
-            clientConfig: clientConfig,
-            storage: new IotaStorage(storage),
-        });
+        const identity = new IotaAccount();
+        identity.walletAddr = walletAddressBech32;
+        identity.secretManager = secretManager;
 
-        const did = await account.builder.createIdentity({
-            privateKey: key.private(),
-        });
+        const iotaStorage: Storage = new Storage(
+            // new JwkMemStore(),
+            new IotaJwkStore(storage, alias),
+            new KeyIdMemStore()
+        );
 
-        // if seed does not exist it means the did was newly created :P
+        let document: IotaDocument;
         if (!isOld) {
-            await storage.findOneAndUpdate(
-                { alias },
-                { did: did.did().toString() }
+            document = new IotaDocument(networkHrp);
+            await document.generateMethod(
+                iotaStorage,
+                IotaJwkStore.ed25519KeyType(),
+                JwsAlgorithm.EdDSA,
+                "#key-1",
+                MethodScope.VerificationMethod()
             );
-            await did.createMethod({
-                scope: MethodScope.VerificationMethod(),
-                content: MethodContent.PrivateEd25519(key.private()),
-                fragment: "#vc-signature",
-            });
-            const revocationBitmap = new RevocationBitmap();
-            await did.createService({
-                fragment: "#vc-bitmap",
-                type: RevocationBitmap.type(),
-                endpoint: revocationBitmap.toEndpoint(),
-            });
+            const address = Utils.parseBech32Address(walletAddressBech32);
+            const aliasOutput: AliasOutput = await didClient.newDidOutput(
+                address,
+                document
+            );
 
-            await did.publish();
+            await ensureAddressHasFunds(
+                client,
+                walletAddressBech32,
+                aliasOutput.amount,
+                seed
+            );
+            document = await didClient.publishDidOutput(
+                seedSecretManager,
+                aliasOutput
+            );
         } else {
-            await did.fetchDocument();
+            document = await didClient.resolveDid(IotaDID.parse(did));
         }
+        identity.document = document;
 
-        account.account = did;
-        return account;
+        return identity;
+
+        // return new IotaAccount();
+
+        // const key = KeyPair.tryFromPrivateKeyBytes(
+        //     KeyType.Ed25519,
+        //     stringToBytes(seed)
+        // );
+        // const account = new IotaAccount();
+        // account.keyPair = key;
+        // const clientConfig = {
+        //     permanodes: [
+        //         { url: "https://chrysalis-chronicle.iota.org/api/mainnet/" },
+        //     ],
+        // };
+        // const credentials = await IotaCredentialsManager.build(store, account);
+        // account.credentials = credentials;
+        // account.builder = new AccountBuilder({
+        //     autopublish: false,
+        //     clientConfig: clientConfig,
+        //     storage: new IotaStorage(storage),
+        // });
+        // const did = await account.builder.createIdentity({
+        //     privateKey: key.private(),
+        // });
+        // // if seed does not exist it means the did was newly created :P
+        // if (!isOld) {
+        //     await storage.findOneAndUpdate(
+        //         { alias },
+        //         { did: did.did().toString() }
+        //     );
+        //     await did.createMethod({
+        //         scope: MethodScope.VerificationMethod(),
+        //         content: MethodContent.PrivateEd25519(key.private()),
+        //         fragment: "#vc-signature",
+        //     });
+        //     const revocationBitmap = new RevocationBitmap();
+        //     await did.createService({
+        //         fragment: "#vc-bitmap",
+        //         type: RevocationBitmap.type(),
+        //         endpoint: revocationBitmap.toEndpoint(),
+        //     });
+        //     await did.publish();
+        // } else {
+        //     await did.fetchDocument();
+        // }
+        // account.account = did;
+        // return account;
     }
 
     public getDid(): string {
-        return this.account.did().toString();
+        return this.document ? this.document.id().toString() : this.tempDid;
     }
     public getDocument(): Record<string, any> {
-        return this.account.document().toJSON();
+        throw new Error("asdf");
+        // return this.account.document().toJSON();
     }
 }
 
@@ -225,6 +296,9 @@ export class IotaCredentialsManager<
     T extends StorageSpec<Record<string, any>, any>
 > implements CredentialsManager<T>
 {
+    createBadge(options: CreateBadgeProps): Promise<Record<string, any>> {
+        throw new Error("Method not implemented.");
+    }
     store: T;
     account: IotaAccount<T>;
 
@@ -232,133 +306,55 @@ export class IotaCredentialsManager<
         store: T,
         account: IotaAccount<T>
     ) {
-        const credentialsManager = new IotaCredentialsManager();
-        credentialsManager.store = store;
-        credentialsManager.account = account;
-        return credentialsManager;
+        // const credentialsManager = new IotaCredentialsManager();
+        // credentialsManager.store = store;
+        // credentialsManager.account = account;
+        // return credentialsManager;
     }
 
     public isCredentialValid(cred: Record<string, unknown>): Promise<boolean> {
-        return isCredentialValid(cred);
+        // return isCredentialValid(cred);
+        // return true;
+        throw new Error();
     }
     public verify(cred: Record<string, unknown>): Promise<IVerificationResult> {
-        return verifyCredential(cred);
+        // return verifyCredential(cred);
+        throw new Error();
     }
     public async create(
         props: CreateCredentialProps
     ): Promise<Record<string, any>> {
-        const { id, recipientDid, body, type } = props;
+        throw new Error("asfd");
+        // const { id, recipientDid, body, type } = props;
 
-        const key =
-            parseBytesToString(this.account.keyPair.private()) +
-            parseBytesToString(this.account.keyPair.public());
-        const keyUint8Array = parseStringToBytes(key);
+        // const key =
+        //     parseBytesToString(this.account.keyPair.private()) +
+        //     parseBytesToString(this.account.keyPair.public());
+        // const keyUint8Array = parseStringToBytes(key);
 
-        const signer = didJWT.EdDSASigner(keyUint8Array);
-        const vcIssuer: Issuer = {
-            did: this.account.getDid(),
-            signer,
-            alg: "EdDSA",
-        };
-        const types = Array.isArray(type) ? [...type] : [type];
+        // const signer = didJWT.EdDSASigner(keyUint8Array);
+        // const vcIssuer: Issuer = {
+        //     did: this.account.getDid(),
+        //     signer,
+        //     alg: "EdDSA",
+        // };
+        // const types = Array.isArray(type) ? [...type] : [type];
 
-        const credential: JwtCredentialPayload = {
-            sub: recipientDid,
-            nbf: Math.floor(Date.now() / 1000),
-            id,
-            vc: {
-                "@context": ["https://www.w3.org/2018/credentials/v1"],
-                type: ["VerifiableCredential", ...types],
-                id,
-                credentialSubject: {
-                    ...body,
-                },
-            },
-        };
-        const jwt = await createVerifiableCredentialJwt(credential, vcIssuer);
+        // const credential: JwtCredentialPayload = {
+        //     sub: recipientDid,
+        //     nbf: Math.floor(Date.now() / 1000),
+        //     id,
+        //     vc: {
+        //         "@context": ["https://www.w3.org/2018/credentials/v1"],
+        //         type: ["VerifiableCredential", ...types],
+        //         id,
+        //         credentialSubject: {
+        //             ...body,
+        //         },
+        //     },
+        // };
+        // const jwt = await createVerifiableCredentialJwt(credential, vcIssuer);
 
-        return { cred: jwt };
+        // return { cred: jwt };
     }
-    public async revoke(keyIndex: number): Promise<void> {
-        await this.account.account.revokeCredentials("#vc-bitmap", keyIndex);
-        await this.account.account.publish();
-    }
-}
-
-/**
- * Validate a credential
- *
- * @param {Credential} signedVc - signed VC that needs to be validated
- * @param {ResolvedDocument} issuerIdentity - account it was signed with
- * @returns {Promise<boolean>}
- */
-
-export async function isCredentialValid(
-    cred: Record<string, unknown>
-): Promise<boolean> {
-    const resolver = await Resolver.builder()
-        .clientConfig(clientConfig)
-        .build();
-    const signedVc = Credential.fromJSON(cred);
-    const issuerIdentity = await resolver.resolve(
-        DID.parse(signedVc.issuer().toString())
-    );
-
-    try {
-        CredentialValidator.validate(
-            signedVc,
-            issuerIdentity,
-            CredentialValidationOptions.default(),
-            FailFast.AllErrors
-        );
-    } catch (error) {
-        return false;
-    }
-    return true;
-}
-
-/**
- * DVID v0.2.0
- * Domain Verifiable Identity is a module that allows you to verify the source of
- * origin for a verifiable credential, here are the steps to validate with DVID v0.2.0
- *
- * - Parse the Document and look for the domain of origin
- * - Lookup TXT records for the domain of origin
- * - Resolve DID contained in DNS record and validate the credential
- *
- * @param {Credential} signedVc
- * @returns {{ vc: boolean, dvid: boolean}}
- */
-
-export async function verifyCredential(
-    cred: Record<string, unknown>
-): Promise<{ vc: boolean; dvid: boolean }> {
-    const signedVc = Credential.fromJSON(cred);
-    const resolver = await Resolver.builder()
-        .clientConfig(clientConfig)
-        .build();
-    const domain = signedVc
-        .toJSON()
-        .id.split(/(https|http):\/\//)[2]
-        .split("/")[0];
-    const txtRecords = await dnsResolveTxt(domain);
-    const didRecord = txtRecords.find((record) =>
-        record[0].includes("DVID.did=")
-    );
-    if (!didRecord) throw new Error("DVID Record not found");
-    const didTag = didRecord[0].split("DVID.did=")[1];
-    const resolvedDocument = await resolver.resolve(didTag);
-
-    if (!resolvedDocument) {
-        return {
-            dvid: false,
-            vc: await isCredentialValid(signedVc.toJSON()),
-        };
-    }
-
-    const vcIntegrity = await isCredentialValid(signedVc.toJSON());
-    return {
-        dvid: true,
-        vc: vcIntegrity,
-    };
 }

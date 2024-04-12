@@ -17,24 +17,32 @@ import {
 import { getPublicKeyAsync } from "@noble/ed25519";
 import { nanoid } from "nanoid";
 
-import { IotaJwkStore } from "./iota-store";
+import { IotaJwkStore, IotaKidStore } from "./iota-store";
 import {
     AliasOutput,
     Client,
     SecretManager,
     SeedSecretManager,
     Utils,
-    Wallet,
 } from "@iota/sdk-wasm/node";
 import {
     IotaDID,
     IotaDocument,
     IotaIdentityClient,
-    JwkMemStore,
+    Credential,
     JwsAlgorithm,
     KeyIdMemStore,
     MethodScope,
     Storage,
+    JwsSignatureOptions,
+    Timestamp,
+    JwtCredentialValidator,
+    EdDSAJwsVerifier,
+    DecodedJwtCredential,
+    Jwt,
+    Resolver,
+    JwtCredentialValidationOptions,
+    FailFast,
 } from "@iota/identity-wasm/node";
 import { ensureAddressHasFunds } from "./utils";
 
@@ -89,20 +97,18 @@ export class IotaAdapter<
     public async deserializeDid<
         T extends StorageSpec<Record<string, any>, any>
     >(config: IdentityConfig, store: T): Promise<DidCreationResult> {
-        // const identity = await IotaAccount.build({
-        //     seed: config.seed as string,
-        //     isOld: true,
-        //     alias: config.alias,
-        //     store: store,
-        //     extras: {
-        //         storage: this.store,
-        //     },
-        // });
-        //
-        // return { identity, seed: config.seed as string };
-        //
+        const identity = await IotaAccount.build({
+            seed: config.seed as string,
+            isOld: true,
+            alias: config.alias,
+            store: store,
+            did: config.did,
+            extras: {
+                storage: this.store,
+            },
+        });
 
-        throw new Error();
+        return { identity, seed: config.seed as string };
     }
 }
 
@@ -110,11 +116,13 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
     implements IdentityAccount
 {
     credentials: IotaCredentialsManager<T>;
+    document: IotaDocument;
+    didClient: IotaIdentityClient;
     private secretManager: SecretManager;
     private walletAddr: string;
     private did: string;
-    private document: IotaDocument;
     private tempDid: string;
+    private storage: Storage;
 
     private constructor() {}
 
@@ -150,6 +158,10 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
         //     return { vpPayload, presentationJwt };
     }
 
+    public getStorage() {
+        return this.storage;
+    }
+
     public static async build<T extends StorageSpec<Record<string, any>, any>>(
         props: IdentityAccountProps<T> & { did?: string }
     ) {
@@ -171,7 +183,6 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
         // Get the Bech32 human-readable part (HRP) of the network.
         const networkHrp: string = await didClient.getNetworkHrp();
 
-        const mnemonic = Utils.generateMnemonic();
         const seedSecretManager: SeedSecretManager = {
             hexSeed,
         };
@@ -195,12 +206,14 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
         const identity = new IotaAccount();
         identity.walletAddr = walletAddressBech32;
         identity.secretManager = secretManager;
+        identity.didClient = didClient;
 
-        const iotaStorage: Storage = new Storage(
-            // new JwkMemStore(),
-            new IotaJwkStore(storage, alias),
-            new KeyIdMemStore()
-        );
+        const jwkStore = await IotaJwkStore.build(storage, alias);
+        const kidStore = await IotaKidStore.build(storage, alias);
+
+        const iotaStorage: Storage = new Storage(jwkStore, kidStore);
+
+        identity.storage = iotaStorage;
 
         let document: IotaDocument;
         if (!isOld) {
@@ -232,63 +245,20 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
             document = await didClient.resolveDid(IotaDID.parse(did));
         }
         identity.document = document;
+        const credentialsManager = await IotaCredentialsManager.build(
+            store,
+            identity
+        );
+        identity.credentials = credentialsManager;
 
         return identity;
-
-        // return new IotaAccount();
-
-        // const key = KeyPair.tryFromPrivateKeyBytes(
-        //     KeyType.Ed25519,
-        //     stringToBytes(seed)
-        // );
-        // const account = new IotaAccount();
-        // account.keyPair = key;
-        // const clientConfig = {
-        //     permanodes: [
-        //         { url: "https://chrysalis-chronicle.iota.org/api/mainnet/" },
-        //     ],
-        // };
-        // const credentials = await IotaCredentialsManager.build(store, account);
-        // account.credentials = credentials;
-        // account.builder = new AccountBuilder({
-        //     autopublish: false,
-        //     clientConfig: clientConfig,
-        //     storage: new IotaStorage(storage),
-        // });
-        // const did = await account.builder.createIdentity({
-        //     privateKey: key.private(),
-        // });
-        // // if seed does not exist it means the did was newly created :P
-        // if (!isOld) {
-        //     await storage.findOneAndUpdate(
-        //         { alias },
-        //         { did: did.did().toString() }
-        //     );
-        //     await did.createMethod({
-        //         scope: MethodScope.VerificationMethod(),
-        //         content: MethodContent.PrivateEd25519(key.private()),
-        //         fragment: "#vc-signature",
-        //     });
-        //     const revocationBitmap = new RevocationBitmap();
-        //     await did.createService({
-        //         fragment: "#vc-bitmap",
-        //         type: RevocationBitmap.type(),
-        //         endpoint: revocationBitmap.toEndpoint(),
-        //     });
-        //     await did.publish();
-        // } else {
-        //     await did.fetchDocument();
-        // }
-        // account.account = did;
-        // return account;
     }
 
     public getDid(): string {
         return this.document ? this.document.id().toString() : this.tempDid;
     }
     public getDocument(): Record<string, any> {
-        throw new Error("asdf");
-        // return this.account.document().toJSON();
+        return this.document.toJSON();
     }
 }
 
@@ -306,55 +276,77 @@ export class IotaCredentialsManager<
         store: T,
         account: IotaAccount<T>
     ) {
-        // const credentialsManager = new IotaCredentialsManager();
-        // credentialsManager.store = store;
-        // credentialsManager.account = account;
-        // return credentialsManager;
+        const credentialsManager = new IotaCredentialsManager();
+        credentialsManager.store = store;
+        credentialsManager.account = account;
+        return credentialsManager;
     }
 
-    public isCredentialValid(cred: Record<string, unknown>): Promise<boolean> {
+    public async isCredentialValid(
+        cred: Record<string, unknown>
+    ): Promise<boolean> {
         // return isCredentialValid(cred);
+        // j
         // return true;
-        throw new Error();
+        //
+        const issuer = JwtCredentialValidator.extractIssuerFromJwt(
+            new Jwt(cred.cred as string)
+        );
+
+        const issuerDocument = await this.account.didClient.resolveDid(
+            IotaDID.parse(issuer.toString())
+        );
+        const decoded_credential = new JwtCredentialValidator(
+            new EdDSAJwsVerifier()
+        ).validate(
+            new Jwt(cred.cred as string),
+            issuerDocument,
+            new JwtCredentialValidationOptions(),
+            FailFast.FirstError
+        );
+
+        return true;
     }
-    public verify(cred: Record<string, unknown>): Promise<IVerificationResult> {
-        // return verifyCredential(cred);
-        throw new Error();
+    public async verify(
+        cred: Record<string, unknown>
+    ): Promise<IVerificationResult> {
+        return { vc: await this.isCredentialValid(cred), dvid: true };
     }
     public async create(
         props: CreateCredentialProps
     ): Promise<Record<string, any>> {
-        throw new Error("asfd");
-        // const { id, recipientDid, body, type } = props;
+        const { id, recipientDid, body, type, expiryDate, extras } = props;
 
-        // const key =
-        //     parseBytesToString(this.account.keyPair.private()) +
-        //     parseBytesToString(this.account.keyPair.public());
-        // const keyUint8Array = parseStringToBytes(key);
+        const subject = {
+            id: recipientDid,
+            ...body,
+        };
 
-        // const signer = didJWT.EdDSASigner(keyUint8Array);
-        // const vcIssuer: Issuer = {
-        //     did: this.account.getDid(),
-        //     signer,
-        //     alg: "EdDSA",
-        // };
-        // const types = Array.isArray(type) ? [...type] : [type];
+        const expiryString = expiryDate
+            ? new Date(expiryDate).toISOString()
+            : "";
+        // Create an unsigned `UniversityDegree` credential for Alice
+        const unsignedVc = new Credential({
+            id,
+            type,
+            issuer: this.account.getDid(),
+            credentialSubject: subject,
+            expirationDate: expiryString
+                ? Timestamp.parse(expiryString)
+                : undefined,
+            ...extras,
+        });
 
-        // const credential: JwtCredentialPayload = {
-        //     sub: recipientDid,
-        //     nbf: Math.floor(Date.now() / 1000),
-        //     id,
-        //     vc: {
-        //         "@context": ["https://www.w3.org/2018/credentials/v1"],
-        //         type: ["VerifiableCredential", ...types],
-        //         id,
-        //         credentialSubject: {
-        //             ...body,
-        //         },
-        //     },
-        // };
-        // const jwt = await createVerifiableCredentialJwt(credential, vcIssuer);
+        // Create signed JWT credential.
+        const credentialJwt = (
+            await this.account.document.createCredentialJwt(
+                this.account.getStorage(),
+                "#key-1",
+                unsignedVc,
+                new JwsSignatureOptions()
+            )
+        ).toString();
 
-        // return { cred: jwt };
+        return { cred: credentialJwt };
     }
 }

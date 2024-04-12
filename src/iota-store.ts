@@ -8,43 +8,43 @@ import {
     EdCurve,
     JwkType,
     JwsAlgorithm,
+    KeyIdStorage,
+    MethodDigest,
 } from "@iota/identity-wasm/node";
 import { StorageSpec } from "@tanglelabs/ssimon";
+import { nanoid } from "nanoid";
 
 type Ed25519PrivateKey = Uint8Array;
 type Ed25519PublicKey = Uint8Array;
 
+function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 export class IotaJwkStore implements JwkStorage {
     /** The map from key identifiers to Jwks. */
     private _keys: Map<string, Jwk>;
-    private _built: boolean = false;
 
-    /** Creates a new, empty `MemStore` instance. */
-    constructor(
+    private constructor(
         private _storage: StorageSpec<any, any>,
         private _alias: string
-    ) {
-        this.build();
-    }
+    ) {}
 
-    private async build() {
-        const keyMapExists = await this._storage.findOne({
-            alias: this._alias,
+    public static async build(storage: StorageSpec<any, any>, alias: string) {
+        const jwkStore = new IotaJwkStore(storage, alias);
+        const keyMapExists = await jwkStore._storage.findOne({
+            alias: jwkStore._alias,
         });
-        console.log("Map Exists", keyMapExists);
         if (
             !keyMapExists ||
             !(keyMapExists.extras && keyMapExists.extras.keysMap)
         ) {
-            this._keys = new Map();
+            jwkStore._keys = new Map();
         } else {
-            this._keys = this.deserializeKeyMap(keyMapExists.extras.keysMap);
+            jwkStore._keys = jwkStore.deserializeKeyMap(
+                keyMapExists.extras.keysMap
+            );
         }
-        this._built = true;
-    }
-
-    sleep(ms: number) {
-        return new Promise((resolve) => setTimeout(resolve, ms));
+        return jwkStore;
     }
 
     public static ed25519KeyType(): string {
@@ -55,12 +55,6 @@ export class IotaJwkStore implements JwkStorage {
         keyType: string,
         algorithm: JwsAlgorithm
     ): Promise<JwkGenOutput> {
-        console.log(this._built);
-        if (!this._built) {
-            await this.sleep(1000);
-            return this.generate(keyType, algorithm);
-        }
-
         if (keyType !== IotaJwkStore.ed25519KeyType()) {
             throw new Error(`unsupported key type ${keyType}`);
         }
@@ -72,22 +66,14 @@ export class IotaJwkStore implements JwkStorage {
         const keyId = randomKeyId();
         const privKey: Ed25519PrivateKey = ed.utils.randomPrivateKey();
 
-        console.log("failing after this");
-
         const jwk = await encodeJwk(privKey, algorithm);
 
-        console.log("failing before this");
-
         this._keys.set(keyId, jwk);
-
-        console.log("what?", this._keys);
 
         const publicJWK = jwk.toPublic();
         if (!publicJWK) {
             throw new Error(`JWK is not a public key`);
         }
-
-        console.log("here?");
 
         await this.flushChanges();
 
@@ -111,7 +97,8 @@ export class IotaJwkStore implements JwkStorage {
 
         if (jwk) {
             const [privateKey, _] = decodeJwk(jwk);
-            return ed.sign(data, privateKey);
+            const signature = await ed.signAsync(data, privateKey);
+            return signature;
         } else {
             throw new Error(`key with id ${keyId} not found`);
         }
@@ -168,9 +155,10 @@ export class IotaJwkStore implements JwkStorage {
     }
 
     private async flushChanges() {
+        const { extras } = await this._storage.findOne({ alias: this._alias });
         await this._storage.findOneAndUpdate(
             { alias: this._alias },
-            { extras: { keysMap: this.serializeKeyMap() } }
+            { extras: { ...extras, keysMap: this.serializeKeyMap() } }
         );
     }
 }
@@ -215,19 +203,94 @@ function decodeJwk(jwk: Jwk): [Ed25519PrivateKey, Ed25519PublicKey] {
     }
 }
 
-// Returns a random number between `min` and `max` (inclusive).
-// SAFETY NOTE: This is not cryptographically secure randomness and thus not suitable for production use.
-// It suffices for our testing implementation however and avoids an external dependency.
-function getRandomNumber(min: number, max: number): number {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+function randomKeyId(): string {
+    return nanoid();
 }
 
-// Returns a random key id.
-function randomKeyId(): string {
-    const randomness = new Uint8Array(20);
-    for (let index = 0; index < randomness.length; index++) {
-        randomness[index] = getRandomNumber(0, 255);
+export class IotaKidStore implements KeyIdStorage {
+    private _keyIds: Map<string, string>;
+    private _built: boolean = false;
+
+    private constructor(
+        private _storage: StorageSpec<any, any>,
+        private _alias: string
+    ) {}
+
+    private serializeMap() {
+        return JSON.stringify(Array.from(this._keyIds.entries()));
     }
 
-    return encodeB64(randomness);
+    private deserializeMap(serialized: string) {
+        return new Map(JSON.parse(serialized));
+    }
+
+    public static async build(storage: StorageSpec<any, any>, alias: string) {
+        const kidStore = new IotaKidStore(storage, alias);
+
+        const kidsMapExists = await kidStore._storage.findOne({
+            alias: kidStore._alias,
+        });
+        if (!kidsMapExists || !kidsMapExists.extras?.kidsMap) {
+            kidStore._keyIds = new Map();
+        } else {
+            kidStore._keyIds = kidStore.deserializeMap(
+                kidsMapExists.extras.kidsMap
+            ) as Map<string, string>;
+        }
+        return kidStore;
+    }
+
+    public async insertKeyId(
+        methodDigest: MethodDigest,
+        keyId: string
+    ): Promise<void> {
+        let methodDigestAsString: string = methodDigestToString(methodDigest);
+        let value = this._keyIds.get(methodDigestAsString);
+        if (value !== undefined) {
+            throw new Error("KeyId already exists");
+        }
+        this._keyIds.set(methodDigestAsString, keyId);
+        await this.flushChanges();
+    }
+
+    public async getKeyId(methodDigest: MethodDigest): Promise<string> {
+        let methodDigestAsString: string = methodDigestToString(methodDigest);
+        let value = this._keyIds.get(methodDigestAsString);
+        if (value == undefined) {
+            throw new Error("KeyId not found");
+        }
+        return value;
+    }
+
+    public async deleteKeyId(methodDigest: MethodDigest): Promise<void> {
+        let methodDigestAsString: string = methodDigestToString(methodDigest);
+        let success = this._keyIds.delete(methodDigestAsString);
+        await this.flushChanges();
+        if (success) {
+            return;
+        } else {
+            throw new Error("KeyId not found!");
+        }
+    }
+
+    public count(): number {
+        return this._keyIds.size;
+    }
+
+    private async flushChanges() {
+        const { extras } = await this._storage.findOne({ alias: this._alias });
+        await this._storage.findOneAndUpdate(
+            { alias: this._alias },
+            { extras: { ...extras, kidsMap: this.serializeMap() } }
+        );
+    }
+}
+
+/**
+ * Converts a `MethodDigest` to a base64 encoded string.
+ */
+function methodDigestToString(methodDigest: MethodDigest): string {
+    let arrayBuffer = methodDigest.pack().buffer;
+    let buffer = Buffer.from(arrayBuffer);
+    return buffer.toString("base64");
 }

@@ -43,10 +43,6 @@ import {
 } from "@iota/identity-wasm/node";
 import { ensureAddressHasFunds } from "./utils";
 
-export const clientConfig = {
-    permanodes: [{ url: "https://chrysalis-chronicle.iota.org/api/mainnet/" }],
-};
-
 export class IotaAdapter<
     K extends StorageSpec<Record<string, any>, any>,
     T extends IotaAccount<K>
@@ -160,7 +156,8 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
         );
         const hexSeed = "0x" + seed + publicKey;
 
-        const API_ENDPOINT = "https://api.testnet.shimmer.network";
+        const API_ENDPOINT =
+            "https://chronicle.stardust-mainnet.iotaledger.net";
         const client = new Client({
             primaryNode: API_ENDPOINT,
             localPow: true,

@@ -4,19 +4,24 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@iota/sdk-wasm@1.1.3':
+    hash: d67a65ke3cwxj3mif56u4jberu
+    path: patches/@iota__sdk-wasm@1.1.3.patch
+
 dependencies:
   '@iota/identity-wasm':
     specifier: ^1.2.0
     version: 1.2.0(@iota/sdk-wasm@1.1.3)
   '@iota/sdk-wasm':
     specifier: 1.1.3
-    version: 1.1.3
+    version: 1.1.3(patch_hash=d67a65ke3cwxj3mif56u4jberu)
   '@noble/ed25519':
     specifier: ^2.1.0
     version: 2.1.0
   '@tanglelabs/ssimon':
-    specifier: ^0.7.0
-    version: 0.7.0
+    specifier: ^0.7.1
+    version: 0.7.1
   did-jwt:
     specifier: ^7.2.4
     version: 7.4.7
@@ -499,7 +504,7 @@ packages:
     peerDependencies:
       '@iota/sdk-wasm': ^1.0.4
     dependencies:
-      '@iota/sdk-wasm': 1.1.3
+      '@iota/sdk-wasm': 1.1.3(patch_hash=d67a65ke3cwxj3mif56u4jberu)
       '@noble/ed25519': 1.7.3
       '@types/node-fetch': 2.6.11
       node-fetch: 2.7.0
@@ -507,7 +512,7 @@ packages:
       - encoding
     dev: false
 
-  /@iota/sdk-wasm@1.1.3:
+  /@iota/sdk-wasm@1.1.3(patch_hash=d67a65ke3cwxj3mif56u4jberu):
     resolution: {integrity: sha512-piyl0B6gcoo7mbmX3QUCyEYtqk6UoCS2cqBYiV7FFz3fmT2DPcQJmcaDvW0nmNh5BbRR9MhPkp3MEerPm6mezA==}
     engines: {node: '>=16'}
     dependencies:
@@ -522,6 +527,7 @@ packages:
     transitivePeerDependencies:
       - encoding
     dev: false
+    patched: true
 
   /@istanbuljs/load-nyc-config@1.1.0:
     resolution: {integrity: sha512-VjeHSlIzpv/NyD3N0YuHfXOPDIixcA1q2ZV98wsMqcYlPmv2n3Yb2lYP9XMElnaFVXg5A7YLTeLu6V84uQDjmQ==}
@@ -1091,8 +1097,8 @@ packages:
       '@sinonjs/commons': 3.0.1
     dev: true
 
-  /@tanglelabs/ssimon@0.7.0:
-    resolution: {integrity: sha512-MzMMjRJ8SyZyR4RTfIkzr9v6g7kSlodHadJC4fqAYyjP+WZ5ICsOd2wdT/TD57Ysj/jYjH6vVsS4b8pk61Pnow==}
+  /@tanglelabs/ssimon@0.7.1:
+    resolution: {integrity: sha512-vSLrh5nxgZ7bINhSU8TGqYw6Oi0lXDU1qVBXbnvfk2wxW0fIspITxcTwgRsPEx3ozoMOVw5++t8rZvPXqVH/xw==}
     dependencies:
       crypto-js: 4.2.0
     dev: false

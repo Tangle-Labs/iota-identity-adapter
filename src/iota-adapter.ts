@@ -266,11 +266,76 @@ export class IotaCredentialsManager<
     T extends StorageSpec<Record<string, any>, any>
 > implements CredentialsManager<T>
 {
-    createBadge(options: CreateBadgeProps): Promise<Record<string, any>> {
-        throw new Error("Method not implemented.");
-    }
     store: T;
     account: IotaAccount<T>;
+
+    async createBadge(options: CreateBadgeProps): Promise<Record<string, any>> {
+        const {
+            id,
+            recipientDid,
+            body,
+            type,
+            image,
+            issuerName,
+            badgeName,
+            criteria,
+            description,
+            expiryDate,
+        } = options;
+
+        const types = Array.isArray(type) ? [...type] : [type];
+        const extras = options.extras ?? {};
+        const expiryString = expiryDate
+            ? new Date(expiryDate).toISOString()
+            : "";
+        const credential = new Credential({
+            id: recipientDid,
+            context: [
+                "https://www.w3.org/2018/credentials/v1",
+                "https://purl.imsglobal.org/spec/ob/v3p0/schema/json/ob_v3p0_achievementcredential_schema.json",
+            ],
+            ...extras,
+            name: type,
+            issuer: {
+                id: new URL("/", id).toString(),
+                type: ["Profile"],
+                name: issuerName,
+            },
+            type: types,
+            issuanceDate: Timestamp.parse(new Date(Date.now()).toISOString()),
+            expirationDate: expiryString
+                ? Timestamp.parse(expiryString)
+                : undefined,
+            credentialSubject: {
+                type: ["AchievementSubject"],
+                achievement: {
+                    id: id,
+                    type: "",
+                    criteria: {
+                        narrative: criteria,
+                    },
+                    name: badgeName,
+                    description: description,
+                    image: {
+                        id: image,
+                        type: "Image",
+                    },
+                    ...body,
+                },
+            },
+        });
+
+        const credentialJwt = (
+            await this.account.document.createCredentialJwt(
+                this.account.getStorage(),
+                "#key-1",
+                credential,
+                new JwsSignatureOptions()
+            )
+        ).toString();
+
+        return { cred: credentialJwt };
+    }
 
     public static async build<T extends StorageSpec<Record<string, any>, any>>(
         store: T,
@@ -285,10 +350,6 @@ export class IotaCredentialsManager<
     public async isCredentialValid(
         cred: Record<string, unknown>
     ): Promise<boolean> {
-        // return isCredentialValid(cred);
-        // j
-        // return true;
-        //
         const issuer = JwtCredentialValidator.extractIssuerFromJwt(
             new Jwt(cred.cred as string)
         );

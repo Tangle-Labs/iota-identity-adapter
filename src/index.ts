@@ -396,4 +396,4 @@ export class IotaCredentialsManager<
     }
 }
 
-export * from "./iota-store";
+// export * from "./iota-store";

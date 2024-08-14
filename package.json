@@ -8,7 +8,7 @@
   "author": "Merul <merul@tanglelabs.io>",
   "license": "GPL-2.0",
   "scripts": {
-    "build": "tsc;",
+    "build": "tsc; fix-esm-import-path ./dist;",
     "test": "jest",
     "coverage": "jest --coverage",
     "lint": "eslint . --cache",
@@ -41,6 +41,7 @@
     "@tanglelabs/ssimon": "^0.7.1",
     "did-jwt": "^7.2.4",
     "did-jwt-vc": "^3.2.5",
+    "fix-esm-import-path": "^1.10.0",
     "nanoid": "^5.0.7",
     "patch-package": "^8.0.0",
     "postinstall-postinstall": "^2.1.0"

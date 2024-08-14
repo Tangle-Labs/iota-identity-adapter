@@ -31,7 +31,7 @@ export async function ensureAddressHasFunds(
     seed: string
 ) {
     let balance = await getAddressBalance(client, addressBech32);
-    if (balance > BigInt(amount)) {
+    if (balance >= BigInt(amount)) {
         return;
     }
     throw new InsufficientBalanceError(addressBech32, parseInt(amount), seed);

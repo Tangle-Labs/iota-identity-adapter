@@ -47,19 +47,19 @@ jobs:
                   registry-url: "https://registry.npmjs.org"
 
             - name: install deps
-              run: yarn
+              run: pnpm i
 
             - name: build
-              run: yarn build
+              run: pnpm build
 
             - name: Publish tagged version
               if: steps.release.outputs.tag != ''
-              run: yarn publish --new-version ${{ steps.release.outputs.version }} --tag ${{ steps.release.outputs.tag }} --access public
+              run: pnpm publish --new-version ${{ steps.release.outputs.version }} --tag ${{ steps.release.outputs.tag }} --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
             - name: Publish version
               if: steps.release.outputs.tag == ''
-              run: yarn publish --new-version ${{ steps.release.outputs.version }} --access public
+              run: pnpm publish --new-version ${{ steps.release.outputs.version }} --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

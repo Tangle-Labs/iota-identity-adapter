@@ -14,15 +14,17 @@ import {
     stringToBytes,
     CreateBadgeProps,
 } from "@tanglelabs/ssimon";
+import Module from "node:module";
+const require = Module.createRequire(import.meta.url);
 import { getPublicKeyAsync } from "@noble/ed25519";
 import { IotaJwkStore, IotaKidStore } from "./iota-store";
-import {
+const {
     AliasOutput,
     Client,
     SecretManager,
     SeedSecretManager,
     Utils,
-} from "@iota/sdk-wasm/node";
+} = require("@iota/sdk-wasm/node");
 import {
     IotaDID,
     IotaDocument,
@@ -111,7 +113,6 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
     credentials: IotaCredentialsManager<T>;
     document: IotaDocument;
     didClient: IotaIdentityClient;
-    private secretManager: SecretManager;
     private walletAddr: string;
     private did: string;
     private tempDid: string;
@@ -156,8 +157,7 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
         );
         const hexSeed = "0x" + seed + publicKey;
 
-        const API_ENDPOINT =
-            "https://chronicle.stardust-mainnet.iotaledger.net";
+        const API_ENDPOINT = "https://api.stardust-mainnet.iotaledger.net";
         const client = new Client({
             primaryNode: API_ENDPOINT,
             localPow: true,
@@ -167,14 +167,12 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
         // Get the Bech32 human-readable part (HRP) of the network.
         const networkHrp: string = await didClient.getNetworkHrp();
 
-        const seedSecretManager: SeedSecretManager = {
+        const seedSecretManager = {
             hexSeed,
         };
 
         // Generate a random mnemonic for our wallet.
-        const secretManager: SecretManager = new SecretManager(
-            seedSecretManager
-        );
+        const secretManager = new SecretManager(seedSecretManager);
 
         const walletAddressBech32 = (
             await secretManager.generateEd25519Addresses({
@@ -189,7 +187,6 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
 
         const identity = new IotaAccount();
         identity.walletAddr = walletAddressBech32;
-        identity.secretManager = secretManager;
         identity.didClient = didClient;
 
         const jwkStore = await IotaJwkStore.build(storage, alias);
@@ -210,10 +207,7 @@ export class IotaAccount<T extends StorageSpec<Record<string, any>, any>>
                 MethodScope.VerificationMethod()
             );
             const address = Utils.parseBech32Address(walletAddressBech32);
-            const aliasOutput: AliasOutput = await didClient.newDidOutput(
-                address,
-                document
-            );
+            const aliasOutput = await didClient.newDidOutput(address, document);
 
             await ensureAddressHasFunds(
                 client,

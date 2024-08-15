@@ -8,15 +8,14 @@
   "author": "Merul <merul@tanglelabs.io>",
   "license": "GPL-2.0",
   "scripts": {
-    "build": "yarn postinstall; tsc; fix-esm-import-path ./dist;",
+    "build": "tsc; fix-esm-import-path ./dist;",
     "test": "jest",
     "coverage": "jest --coverage",
     "lint": "eslint . --cache",
     "format": "prettier -w \"**/*.{ts,js,json,scss,css}\"",
     "format-check": "prettier -c \"src/**{ts,js,json,scss,css}\"",
     "semantic-release": "semantic-release --branches main",
-    "dev": "nodemon --watch './**/*.ts' --exec 'node --experimental-specifier-resolution=node --trace-warnings --loader ts-node/esm' src/test.ts",
-    "postinstall": "cd $INIT_CWD && ./node_modules/.bin/patch-package --patch-dir ./patches"
+    "dev": "nodemon --watch './**/*.ts' --exec 'node --experimental-specifier-resolution=node --trace-warnings --loader ts-node/esm' src/test.ts"
   },
   "devDependencies": {
     "@types/jest": "^29.5.3",

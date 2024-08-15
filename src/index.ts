@@ -24,7 +24,7 @@ const {
     SecretManager,
     SeedSecretManager,
     Utils,
-} = require("@iota/sdk-wasm/node");
+} = require("@iota/sdk-wasm/node/lib/index.js");
 import {
     IotaDID,
     IotaDocument,

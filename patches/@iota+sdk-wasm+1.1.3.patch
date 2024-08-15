@@ -1,7 +1,7 @@
-diff --git a/package.json b/package.json
-index c7e0c7a67cafa27f98b503fdb47d115db14ea77d..4a400e147c00edcfb815c6c580d0da598cabc98b 100644
---- a/package.json
-+++ b/package.json
+diff --git a/node_modules/@iota/sdk-wasm/package.json b/node_modules/@iota/sdk-wasm/package.json
+index c7e0c7a..4a400e1 100644
+--- a/node_modules/@iota/sdk-wasm/package.json
++++ b/node_modules/@iota/sdk-wasm/package.json
 @@ -17,6 +17,16 @@
          "!web/test/",
          "!node/test/"

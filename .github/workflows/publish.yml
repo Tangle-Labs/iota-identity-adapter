@@ -59,12 +59,12 @@ jobs:
 
             - name: Publish tagged version
               if: steps.release.outputs.tag != ''
-              run: pnpm publish --new-version ${{ steps.release.outputs.version }} --tag ${{ steps.release.outputs.tag }} --access public
+              run: pnpm version --no-git-tag-version ${{ steps.release.outputs.version }} && pnpm publish --tag ${{ steps.release.outputs.tag }} --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
             - name: Publish version
               if: steps.release.outputs.tag == ''
-              run: pnpm publish --new-version ${{ steps.release.outputs.version }} --access public
+              run: pnpm version --no-git-tag-version ${{ steps.release.outputs.version }} && pnpm publish --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

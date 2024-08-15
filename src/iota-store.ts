@@ -1,5 +1,7 @@
 import * as ed from "@noble/ed25519";
-import {
+import Module from "node:module";
+const require = Module.createRequire(import.meta.url);
+const {
     decodeB64,
     encodeB64,
     Jwk,
@@ -10,7 +12,7 @@ import {
     JwsAlgorithm,
     KeyIdStorage,
     MethodDigest,
-} from "@iota/identity-wasm/node";
+} = require("@iota/identity-wasm/node");
 import { StorageSpec } from "@tanglelabs/ssimon";
 import { nanoid } from "nanoid";
 

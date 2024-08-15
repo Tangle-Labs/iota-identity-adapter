@@ -24,8 +24,8 @@ const {
     SecretManager,
     SeedSecretManager,
     Utils,
-} = require("@iota/sdk-wasm/node/lib/index.js");
-import {
+} = require("@iota/sdk-wasm/node");
+const {
     IotaDID,
     IotaDocument,
     IotaIdentityClient,
@@ -42,7 +42,7 @@ import {
     JwtCredentialValidationOptions,
     FailFast,
     Presentation,
-} from "@iota/identity-wasm/node";
+} = require("@iota/identity-wasm/node");
 import { ensureAddressHasFunds } from "./utils";
 
 export class IotaIdentityAdapter<
